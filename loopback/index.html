@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video loop back example</title>
+</head>
+<body>
+
+    <header>
+        <h1>Video loop back example</h1>
+    </header>
+
+    <main>
+
+        <h2>Local Video</h2>
+        <div>
+            <video id="localVideo" autoplay playsinline controls="true" muted></video>
+        </div>
+        <h2>Remote Video</h2>
+        <div>
+            <video id="remoteVideo" autoplay playsinline controls="true"></video>
+        </div>
+
+        <script>
+            const config = {
+                'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}]
+            }
+
+            const pc1 = new RTCPeerConnection(config)
+            const pc2 = new RTCPeerConnection(config)
+
+            pc2.addEventListener('track', event => {
+                const remoteVideo = document.querySelector('video#remoteVideo')
+                const [remoteStream] = event.streams
+                console.log('add remote stream:', remoteStream)
+                remoteVideo.srcObject = remoteStream
+            })
+
+            function logConnectionStateChange(pc, name) {
+                pc.addEventListener('connectionstatechange', () => {
+                    console.log(`${name} connection state:`, pc.connectionState)
+                })
+            }
+
+            logConnectionStateChange(pc1, 'pc1')
+            logConnectionStateChange(pc2, 'pc2')
+
+            function passIceCandidates(from, to, fromName, toName) {
+                from.addEventListener('icecandidate', event => {
+                    if (event.candidate) {
+                        to.addIceCandidate(event.candidate)
+                            .catch(error => console.error(`failed to pass ${fromName} candidate to ${toName}:`, error))
+                    }
+                })
+            }
+
+            passIceCandidates(pc1, pc2, 'pc1', 'pc2')
+            passIceCandidates(pc2, pc1, 'pc2', 'pc1')
+
+
+            const constraints = { 'audio': true, 'video': true }
+
+            async function start() {
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                console.log('add local stream:', stream)
+                const videoElement = document.querySelector('video#localVideo')
+                videoElement.srcObject = stream
+                stream.getTracks().forEach(track => pc1.addTrack(track, stream))
+
+                const offer = await pc1.createOffer()
+                await pc1.setLocalDescription(offer)
+                await pc2.setRemoteDescription(offer)
+
+                const answer = await pc2.createAnswer()
+                await pc2.setLocalDescription(answer)
+                await pc1.setRemoteDescription(answer)
+            }
+
+            start().catch(error => console.error('start failed with error:', error))
+
+        </script>
+    </main>
+</body>
+</html>
