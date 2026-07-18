@@ -30,6 +30,28 @@
             const pc1 = new RTCPeerConnection(config)
             const pc2 = new RTCPeerConnection(config)
 
+            const dc1 = pc1.createDataChannel('dc-label');
+
+            dc1.addEventListener('open', event => {
+                console.log('send message over data channel')
+                dc1.send('hello!')
+            })
+
+            dc1.addEventListener('message', event => {
+                console.log('dc1 received:', event.data)
+            })
+
+            pc2.addEventListener('datachannel', event => {
+                const dc2 = event.channel
+                dc2.addEventListener('open', event => {
+                    console.log('dc2 opened')
+                })
+                dc2.addEventListener('message', event => {
+                    console.log('dc2 received:', event.data)
+                    dc2.send('hi there!')
+                })
+            })
+
             pc2.addEventListener('track', event => {
                 const remoteVideo = document.querySelector('video#remoteVideo')
                 const [remoteStream] = event.streams
